@@ -1,0 +1,108 @@
+---
+title: "Visualizing Data in the Tidyverse Course Project"
+author: "Konstantinos Lianos"
+date: "2023-03-27"
+output: html_document
+---
+```{r load required libraries,echo=TRUE}
+library(tidyverse)
+library(ggrepel)
+library(scales)
+library(directlabels)
+library(viridis)
+```
+
+```{r data import,echo=TRUE}
+calories <- read_csv("data_fastfood_calories.csv")
+sales <- read_csv("data_fastfood_sales.csv")
+```
+
+# Problem 1
+```{r problem 1,echo=TRUE}
+sales %>% mutate(proportion_stores = 
+                   num_franchised_stores/unit_count) %>% 
+ggplot(aes(x=us_sales,y=unit_count,color=proportion_stores,
+           label=restaurant)) +
+  geom_point()+
+  xlab("U.S. sales in millions (log10 scale)") +
+  ylab("Total number of stores (log10 scale)") +
+  scale_x_continuous(trans = "log10") +
+  scale_y_continuous(trans = "log10") + 
+  geom_text_repel(color = "black") +
+  labs(color='Proportion of stores \n franchised')+
+  theme_light()+
+  theme(legend.title = element_text(face="bold"),
+        axis.title = element_text(face = "bold"),
+        text = element_text(face = "bold"))
+```
+
+# Problem 2
+```{r problem 2,echo=TRUE}
+ggplot(sales,
+       aes(x=reorder(restaurant,average_sales),y=average_sales))+
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  theme_classic() +
+  scale_y_continuous(labels = scales::dollar_format())+
+  geom_text(aes(label=dollar(round(average_sales))),
+            nudge_y = 150) +
+  xlab("Restaurant")+
+  ylab("Average sales per unit store (in thousands)")
+```
+
+# Problem 3
+```{r problem 3, echo=TRUE}
+ggplot(calories,aes(x=calories,y=sodium,label=item)) +
+  geom_point()+
+  facet_wrap(~restaurant) +
+  theme_light() +
+  geom_hline(yintercept = 2300) +
+  xlab("Calories") +
+  ylab("Sodium (mg)") +
+  geom_text_repel(data=calories %>% filter(sodium>2300),
+                  nudge_x = 500,
+                  nudge_y = 1500,
+                  direction = "y",
+                  hjust = 0.2,
+                  size = 2)
+```
+
+# Problem 4
+```{r problem 4, echo=TRUE}
+calories <- calories %>% 
+  mutate(is_salad = str_detect(item,"[Ss]alad"))
+
+ggplot(calories,aes(x=calories,y=reorder(restaurant,calories,FUN=median))) +
+  geom_boxplot(outlier.shape = NA) +
+  theme_light() +
+  geom_jitter(aes(color = is_salad),cex=2) +
+  scale_x_continuous(trans = "log10") +
+  xlab("Calories (log10 scale)") +
+  ylab("Restaurant") +
+  labs(color='Is the entree \n a salad?')+
+  scale_color_manual(labels=c("no salad","salad"),
+                     values = c("indianred2","turquoise3"))
+```
+
+# Problem 5
+```{r problem 5,echo=TRUE}
+sugar_item <- calories %>% filter(restaurant != "Taco Bell") %>% 
+  group_by(restaurant) %>% 
+  summarise(sugar_med = median(sugar))
+
+final_sugar_sales <- inner_join(sales,sugar_item,by = "restaurant")
+
+
+
+ggplot(final_sugar_sales,aes(x=reorder(restaurant,us_sales)
+                                       ,y=us_sales,fill=sugar_med)) +
+  geom_bar(stat = "identity") +
+  scale_fill_viridis() +
+  theme_classic()+
+  theme(legend.title = element_text(face="bold"),
+        axis.title = element_text(face = "bold"),
+        text = element_text(face = "bold")) +
+  xlab("Restaurant")+
+  ylab("U.S. sales (in millions)") +
+  labs(fill = "Median sugar (grams) \n in fast food entees")
+```
